@@ -1,0 +1,2040 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WildlifeAI — Camera-Trap Analytics & Monitoring System</title>
+  <!-- Tailwind CSS CDN with fallback styles below -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    if (window.tailwind) {
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              brand: {
+                50: '#ecfdf5',
+                100: '#d1fae5',
+                500: '#10b981',
+                600: '#059669',
+                700: '#047857',
+                800: '#065f46',
+                900: '#064e3b',
+              }
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Robust base styling in case CDN is restricted */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: #0b100d;
+      color: #f1f5f9;
+      min-height: 100vh;
+    }
+    code, pre, .font-mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0a0f0d; }
+    ::-webkit-scrollbar-thumb { background: #26382f; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #10b981; }
+    
+    .hud-tag {
+      background: rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+    }
+    /* Fallback basic responsive grid */
+    .kpi-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 14px;
+    }
+  </style>
+</head>
+<body class="bg-[#0b100d] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-emerald-500 selection:text-black">
+
+  <!-- TOP NAVBAR -->
+  <header style="display: flex; justify-content: space-between; align-items: center; width: 100%; min-height: 64px; padding: 12px 24px; position: sticky; top: 0; z-index: 999; background: #0e1612; border-bottom: 1px solid #1a2e22; box-shadow: 0 4px 20px rgba(0,0,0,0.6); flex-wrap: wrap; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 12px; flex-shrink: 0;">
+      <div style="width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #059669, #2dd4bf); display: flex; align-items: center; justify-content: center; font-size: 20px;">
+        🐾
+      </div>
+      <div>
+        <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+          <span style="font-weight: 800; font-size: 18px; color: #34d399;">WildlifeAI Studio</span>
+          <span style="padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; font-family: monospace; text-transform: uppercase; background: rgba(16,185,129,0.15); color: #34d399; border: 1px solid rgba(16,185,129,0.4); display: flex; align-items: center; gap: 6px;">
+            <span style="width: 7px; height: 7px; border-radius: 50%; background: #34d399; box-shadow: 0 0 8px #34d399; display: inline-block;"></span>
+            CALTECH CCT-20 (243,100 IMAGES &bull; 140 STATIONS) CONNECTED
+          </span>
+        </div>
+        <p style="font-size: 11px; color: #94a3b8; margin: 0;">Team 65: The Chosen One &bull; CBIT Hacktoberfest '26 &bull; Caltech Camera Traps 243,100 Image Ecology Benchmark</p>
+      </div>
+    </div>
+
+    <!-- Action items in navbar -->
+    <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;">
+      <div id="featherlessStatusPill" style="display: flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 9999px; font-size: 11px; background: #0a0f0d; border: 1px solid #1e293b; color: #cbd5e1;">
+        <span style="width: 8px; height: 8px; border-radius: 50%; background: #34d399; display: inline-block;"></span>
+        <span id="featherlessModeText">Featherless: Fallback Mode</span>
+      </div>
+      <button onclick="openConfigModal()" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 700; background: #064e3b; color: #6ee7b7; border: 1px solid #047857; cursor: pointer;">
+        <span>⚙️ Featherless Key</span>
+      </button>
+      <a href="/docs" target="_blank" style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 8px; font-size: 11px; font-weight: 600; color: #94a3b8; text-decoration: none; border: 1px solid #334155;">
+        <span>📖 Swagger API</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- MAIN WRAPPER -->
+  <main style="position: relative; z-index: 1;" class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- KPI STATS SUMMARY ROW -->
+    <div class="kpi-grid">
+      <!-- Total Ingested -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Ingested Frames</span>
+          <span>🖼️</span>
+        </div>
+        <div id="kpiTotalImages" class="text-2xl font-bold text-white mt-1">--</div>
+        <div class="text-[11px] text-slate-500 mt-1">Caltech Camera Traps</div>
+      </div>
+
+      <!-- Empty Filtered -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Empty Filtered</span>
+          <span>🧹</span>
+        </div>
+        <div id="kpiEmptyRate" class="text-2xl font-bold text-emerald-400 mt-1">--%</div>
+        <div id="kpiEmptyCount" class="text-[11px] text-slate-500 mt-1">-- frames removed</div>
+      </div>
+
+      <!-- Researcher Hours Saved -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Time Saved</span>
+          <span>⏱️</span>
+        </div>
+        <div id="kpiHoursSaved" class="text-2xl font-bold text-teal-300 mt-1">-- hrs</div>
+        <div class="text-[11px] text-slate-500 mt-1">@ 4.5s manual review</div>
+      </div>
+
+      <!-- Species Richness -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Species Richness</span>
+          <span>🦊</span>
+        </div>
+        <div id="kpiSpeciesRichness" class="text-2xl font-bold text-amber-300 mt-1">--</div>
+        <div class="text-[11px] text-slate-500 mt-1">Distinct taxa identified</div>
+      </div>
+
+      <!-- Shannon Diversity -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Shannon Index (H')</span>
+          <span>✨</span>
+        </div>
+        <div id="kpiShannonIndex" class="text-2xl font-bold text-cyan-300 mt-1">--</div>
+        <div id="kpiEvenness" class="text-[11px] text-slate-500 mt-1">Evenness J': --</div>
+      </div>
+
+      <!-- Review Required -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 shadow-sm">
+        <div class="flex justify-between items-start">
+          <span class="text-xs font-medium text-slate-400">Review Flagged</span>
+          <span>⚠️</span>
+        </div>
+        <div id="kpiReviewRequired" class="text-2xl font-bold text-rose-300 mt-1">--</div>
+        <div class="text-[11px] text-slate-500 mt-1">Low conf / IR blur</div>
+      </div>
+    </div>
+
+    <!-- MAIN TABS NAVIGATION -->
+    <div style="display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(16,185,129,0.2); padding-bottom: 8px; font-size: 13px; font-weight: 600; overflow-x: auto;">
+      <button onclick="switchTab('analytics')" id="tabBtn-analytics" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+        <span>📊 Diel & Analytics</span>
+      </button>
+      <button onclick="switchTab('gallery')" id="tabBtn-gallery" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap">
+        <span>🖼️ Camera Trap Gallery</span>
+      </button>
+      <button onclick="switchTab('batch')" id="tabBtn-batch" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap">
+        <span>📁 Batch Multi-Upload</span>
+      </button>
+      <button onclick="switchTab('upload')" id="tabBtn-upload" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap">
+        <span>⚡ Single Frame Test</span>
+      </button>
+      <button onclick="switchTab('spatial')" id="tabBtn-spatial" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap">
+        <span>🗺️ Spatial Stations</span>
+      </button>
+      <button onclick="switchTab('featherless')" id="tabBtn-featherless" class="tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap">
+        <span>🪶 Featherless Insights</span>
+      </button>
+    </div>
+
+    <!-- TAB 1: DIEL & ANALYTICS -->
+    <div id="tabContent-analytics" class="space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- 24-HOUR CIRCULAR DIEL ACTIVITY CHART -->
+        <div class="lg:col-span-2 bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <div>
+              <h3 class="font-bold text-base text-slate-100 flex items-center space-x-2">
+                <span>24-Hour Diel Circadian Activity Curve</span>
+              </h3>
+              <p class="text-xs text-slate-400">Circadian distribution of independent wildlife sightings (00:00 to 23:00)</p>
+            </div>
+            <div class="flex items-center space-x-2 text-[11px] text-slate-400">
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-indigo-500 inline-block"></span><span>Night</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-amber-500 inline-block"></span><span>Crepuscular</span></span>
+              <span class="flex items-center space-x-1"><span class="w-2.5 h-2.5 rounded bg-emerald-500 inline-block"></span><span>Daylight</span></span>
+            </div>
+          </div>
+          <div id="dielChartContainer" class="h-72 w-full relative flex items-center justify-center">
+            <canvas id="dielChart" class="w-full h-full"></canvas>
+          </div>
+        </div>
+
+        <!-- SPECIES DISTRIBUTION CHART -->
+        <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 shadow-sm space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <h3 class="font-bold text-base text-slate-100">
+                <span>Species Relative Abundance</span>
+              </h3>
+              <p class="text-xs text-slate-400">Based on Independent Sighting Events (burst-deduplicated)</p>
+            </div>
+          </div>
+          <div id="speciesChartContainer" class="h-72 w-full relative flex items-center justify-center">
+            <canvas id="speciesChart" class="w-full h-full"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- DIEL CLASSIFICATION CARDS -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-3">
+        <h3 class="font-bold text-sm text-slate-200">
+          <span>Biological Diel Activity Classifications</span>
+        </h3>
+        <div id="dielCardsContainer" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: GALLERY & INSPECTOR -->
+    <div id="tabContent-gallery" class="hidden space-y-6">
+      
+      <!-- FILTER CONTROLS BAR -->
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-4 flex flex-wrap gap-4 items-center justify-between text-xs">
+        <div class="flex flex-wrap items-center gap-3">
+          <!-- Species Selector -->
+          <div class="flex items-center space-x-1.5">
+            <span class="text-slate-400 font-medium">Species:</span>
+            <select id="galleryFilterSpecies" onchange="currentGalleryOffset=0; loadGalleryImages();" class="bg-[#0e1612] border border-emerald-900/60 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+              <option value="">All Species (22 Categories)</option>
+              <option value="coyote">Coyote</option>
+              <option value="bobcat">Bobcat</option>
+              <option value="mule_deer">Mule Deer</option>
+              <option value="opossum">Virginia Opossum</option>
+              <option value="raccoon">Raccoon</option>
+              <option value="mountain_lion">Mountain Lion</option>
+              <option value="fox">Gray Fox</option>
+              <option value="skunk">Striped Skunk</option>
+              <option value="rabbit">Cottontail Rabbit</option>
+              <option value="bird">Avian Fauna</option>
+              <option value="squirrel">Tree Squirrel</option>
+              <option value="rodent">Rodent</option>
+              <option value="dog">Domestic Dog</option>
+              <option value="cat">Domestic Cat</option>
+              <option value="badger">American Badger</option>
+              <option value="lizard">Western Lizard</option>
+              <option value="cow">Domestic Cattle</option>
+              <option value="pig">Wild Boar</option>
+            </select>
+          </div>
+
+          <!-- Location Selector -->
+          <div class="flex items-center space-x-1.5">
+            <span class="text-slate-400 font-medium">Station:</span>
+            <select id="galleryFilterLocation" onchange="currentGalleryOffset=0; loadGalleryImages();" class="bg-[#0e1612] border border-emerald-900/60 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-emerald-500">
+              <option value="">All 140 Caltech Stations</option>
+              <option value="loc_01">loc_01: Station 96 (Riparian)</option>
+              <option value="loc_02">loc_02: Station 26 (Ridge)</option>
+              <option value="loc_03">loc_03: Station 76 (Waterhole)</option>
+              <option value="loc_04">loc_04: Station 114 (Canyon)</option>
+              <option value="loc_05">loc_05: Station 57 (Basin)</option>
+              <option value="loc_06">loc_06: Station 23 (Pine Knoll)</option>
+              <option value="loc_07">loc_07: Station 106 (Culvert)</option>
+              <option value="loc_08">loc_08: Station 70 (Desert Wash)</option>
+            </select>
+          </div>
+
+          <!-- Empty Toggle -->
+          <label class="flex items-center space-x-2 cursor-pointer bg-[#0e1612] px-3 py-1.5 rounded-lg border border-emerald-900/60 text-slate-300">
+            <input type="checkbox" id="galleryFilterEmpty" onchange="currentGalleryOffset=0; loadGalleryImages();" checked class="accent-emerald-500" />
+            <span>Include Empty Frames</span>
+          </label>
+
+          <!-- Rare & Dangerous Alerts Filter Toggle -->
+          <label class="flex items-center space-x-2 cursor-pointer bg-[#180a0a] px-3 py-1.5 rounded-lg border border-red-900/60 text-red-300 hover:border-red-500/80 transition">
+            <input type="checkbox" id="galleryFilterAlerts" onchange="currentGalleryOffset=0; loadGalleryImages();" class="accent-red-500" />
+            <span class="font-bold flex items-center gap-1"><span>🚨</span> Alerts Only (Rare / Dangerous)</span>
+          </label>
+
+          <!-- Collapse Duplicates / Deduplicate Bursts Toggle -->
+          <label class="flex items-center space-x-2 cursor-pointer bg-[#0a1714] px-3 py-1.5 rounded-lg border border-teal-800/60 text-teal-300 hover:border-teal-400 transition" title="Hide redundant burst sequence duplicate frames and show unique animal encounters">
+            <input type="checkbox" id="galleryFilterDedup" onchange="currentGalleryOffset=0; loadGalleryImages();" class="accent-teal-500" />
+            <span class="font-bold flex items-center gap-1"><span>🔄</span> Collapse Duplicates (Unique Sightings)</span>
+          </label>
+        </div>
+
+        <div class="text-slate-400 font-mono text-[11px]" id="galleryCountSummary">
+          Showing 0 records
+        </div>
+      </div>
+
+      <!-- GALLERY IMAGE GRID -->
+      <div id="galleryGrid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- GALLERY PAGINATION -->
+      <div class="flex items-center justify-between pt-4 border-t border-emerald-950/80 text-xs font-mono">
+        <button id="btnPrevPage" onclick="changeGalleryPage(-1)" class="px-4 py-2 rounded-lg bg-[#0e1612] hover:bg-emerald-950/60 border border-emerald-900/60 text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed transition">
+          ← Previous 48
+        </button>
+        <span id="galleryPageIndicator" class="text-slate-400 font-semibold">Page 1</span>
+        <button id="btnNextPage" onclick="changeGalleryPage(1)" class="px-4 py-2 rounded-lg bg-[#0e1612] hover:bg-emerald-950/60 border border-emerald-900/60 text-emerald-400 font-bold disabled:opacity-40 disabled:cursor-not-allowed transition">
+          Next 48 →
+        </button>
+      </div>
+    </div>
+
+    <!-- TAB: BATCH MULTI-UPLOAD -->
+    <div id="tabContent-batch" class="hidden space-y-6">
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-base text-slate-100 flex items-center gap-2">
+              <span>📁 Batch Multi-Photo Wildlife Ingestion & Deep Inference</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">MULTIPLE UPLOAD</span>
+            </h3>
+            <p class="text-xs text-slate-400">Upload multiple photos at the same time. Antigravity AI identifies every animal's name, calculates confidence & bounding boxes, and automatically saves them to the Camera Trap Gallery.</p>
+          </div>
+        </div>
+
+        <!-- Uploader controls -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <!-- Settings panel -->
+          <div class="bg-[#0e1612] border border-emerald-950/80 rounded-xl p-4 space-y-4">
+            <h4 class="font-bold text-xs text-slate-300">Station & Inference Options</h4>
+            <div>
+              <label class="block text-slate-400 text-xs font-medium mb-1">Assigned Camera Station:</label>
+              <select id="batchStationSelect" class="w-full bg-[#121c17] border border-emerald-900/60 rounded-lg p-2 text-xs text-slate-200">
+                <option value="loc_01">loc_01: Riparian Arroyo</option>
+                <option value="loc_02">loc_02: Chaparral Ridge</option>
+                <option value="loc_03">loc_03: Oaks Waterhole</option>
+                <option value="loc_04">loc_04: Canyon Creek</option>
+                <option value="loc_05">loc_05: Grassland Basin</option>
+                <option value="loc_06">loc_06: Pine Knoll</option>
+                <option value="loc_07">loc_07: Culvert Underpass</option>
+                <option value="loc_08">loc_08: Desert Wash</option>
+              </select>
+            </div>
+            
+            <!-- Generate Sheet Option Toggle -->
+            <div class="p-3 rounded-lg bg-[#121c17] border border-emerald-900/60 space-y-1.5">
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="checkbox" id="autoGenerateSheetOption" checked class="w-4 h-4 accent-emerald-500 rounded cursor-pointer" />
+                <span class="text-xs font-bold text-emerald-400">📊 Generate Sheet on Upload</span>
+              </label>
+              <p class="text-[11px] text-slate-400 leading-tight">Automatically creates and downloads an Excel sheet with item counts & timestamps upon upload.</p>
+            </div>
+
+            <div class="p-3 rounded-lg bg-emerald-950/30 border border-emerald-800/40 text-xs text-slate-300 space-y-1">
+              <div class="font-bold text-emerald-400">⚡ ONNX Neural Network Active</div>
+              <p class="text-[11px] text-slate-400">Trained on 1,000+ classes. Automatically identifies elephants, zebras, domestic cats, dogs, coyotes, bobcats, bears, deer, and more.</p>
+            </div>
+          </div>
+
+          <!-- Multi-file Dropzone -->
+          <div class="lg:col-span-2">
+            <div id="batchDropZone" 
+                 onclick="document.getElementById('batchFilesInput').click()" 
+                 ondragover="handleBatchDragOver(event)" 
+                 ondragleave="handleBatchDragLeave(event)" 
+                 ondrop="handleBatchDrop(event)" 
+                 class="border-2 border-dashed border-emerald-600/60 hover:border-emerald-400 rounded-xl p-8 text-center cursor-pointer transition bg-emerald-950/15 hover:bg-emerald-950/30 flex flex-col items-center justify-center min-h-[170px]">
+              <input type="file" id="batchFilesInput" onchange="handleBatchSelected(event)" accept="image/*" multiple class="hidden" />
+              <div class="w-14 h-14 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-3xl mb-3">
+                📤
+              </div>
+              <p class="text-sm font-bold text-white">Click to Select Multiple Photos or Drag & Drop Here</p>
+              <p class="text-xs text-slate-400 mt-1">Select multiple images at once (JPEG, PNG, WebP, JFIF)</p>
+              
+              <div class="mt-4 flex flex-wrap items-center justify-center gap-2.5" onclick="event.stopPropagation()">
+                <button type="button" onclick="document.getElementById('batchFilesInput').click()" class="px-4 py-2 rounded-lg bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-600/60 text-emerald-300 text-xs font-bold transition">
+                  + Choose Photos
+                </button>
+                <button type="button" id="btnMainGenerateSheet" onclick="triggerBatchUploadAndSheet()" class="px-5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-extrabold transition shadow-md flex items-center gap-1.5">
+                  <span>📊 Generate Sheet</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Processing spinner -->
+        <div id="batchProcessingIndicator" class="hidden p-6 rounded-xl bg-[#0e1612] border border-emerald-500/40 text-center space-y-3">
+          <div class="w-8 h-8 border-3 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p class="text-xs font-mono text-emerald-300 font-bold" id="batchProcessingText">Processing batch images...</p>
+        </div>
+
+        <!-- RARE & DANGEROUS ANIMAL ALERT BANNER (BATCH) -->
+        <div id="batchAlertBanner" class="hidden p-4 rounded-xl bg-gradient-to-r from-red-950/95 via-[#2b0808] to-amber-950/90 border-2 border-red-500 shadow-xl shadow-red-950/50 space-y-2.5 animate-pulse">
+          <div class="flex flex-wrap items-center justify-between gap-2 border-b border-red-900/60 pb-2">
+            <div class="flex items-center gap-2">
+              <span class="text-2xl animate-bounce">🚨</span>
+              <h3 id="batchAlertHeadline" class="text-sm font-extrabold text-red-200 uppercase tracking-wide">
+                CRITICAL WILDLIFE ALERT: Rare & Dangerous Animal Detected!
+              </h3>
+            </div>
+            <div class="flex items-center gap-2">
+              <span id="batchAlertBadge" class="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-red-600 text-white uppercase shadow-sm">
+                CRITICAL THREAT
+              </span>
+              <button onclick="document.getElementById('batchAlertBanner').classList.add('hidden')" class="text-red-400 hover:text-white text-xs px-1.5 py-0.5">✕</button>
+            </div>
+          </div>
+          <p id="batchAlertAdvisory" class="text-xs text-red-100 leading-relaxed font-medium"></p>
+          <div class="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-red-300 font-mono">
+            <span class="font-bold">🚨 Species Detected:</span>
+            <span id="batchAlertSpeciesList" class="font-bold text-white">--</span>
+            <span class="text-red-400/80">|</span>
+            <span class="font-bold">⚠️ Ranger Advisory:</span>
+            <span class="text-amber-200">Alert perimeter field patrols, maintain 150m standoff distance, and verify livestock enclosures.</span>
+          </div>
+        </div>
+
+        <!-- Stats Banner -->
+        <div id="batchSummaryBanner" class="hidden grid grid-cols-2 sm:grid-cols-5 gap-3">
+          <div class="p-3 rounded-lg bg-[#0e1612] border border-emerald-950/80">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Total Uploaded</div>
+            <div id="batchStatTotal" class="text-xl font-bold text-white mt-0.5">0</div>
+          </div>
+          <div class="p-3 rounded-lg bg-[#0e1612] border border-emerald-950/80">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Animals Detected</div>
+            <div id="batchStatAnimals" class="text-xl font-bold text-emerald-400 mt-0.5">0</div>
+          </div>
+          <div class="p-3 rounded-lg bg-[#0e1612] border border-emerald-950/80">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Empty Filtered</div>
+            <div id="batchStatEmpty" class="text-xl font-bold text-slate-300 mt-0.5">0</div>
+          </div>
+          <div class="p-3 rounded-lg bg-[#0e1612] border border-emerald-950/80">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Timestamp</div>
+            <div id="batchStatTimestamp" class="text-[11px] font-mono font-bold text-emerald-400 mt-1 truncate">--</div>
+          </div>
+          <div class="p-3 rounded-lg bg-[#0e1612] border border-emerald-500/50 flex flex-col justify-between">
+            <div class="text-[10px] text-slate-400 uppercase font-mono">Excel Sheet</div>
+            <button onclick="downloadBatchExcel()" class="mt-1 w-full py-1.5 px-2 rounded bg-emerald-600 hover:bg-emerald-500 text-black text-[11px] font-bold text-center transition flex items-center justify-center gap-1 shadow-sm">
+              <span>📊 Generate Sheet</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Smart Sighting Clustering & Deduplication Banner -->
+        <div id="batchDedupBanner" class="hidden p-4 rounded-xl bg-gradient-to-r from-teal-950/90 via-[#0a1714] to-emerald-950/80 border border-teal-500/50 shadow-md">
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-xl shrink-0">
+                🔄
+              </div>
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-mono font-bold uppercase tracking-wider text-teal-400">Smart Deduplication & Sighting Clustering</span>
+                  <span id="batchDedupSavingsBadge" class="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold bg-teal-400 text-black">0% WORKLOAD SAVED</span>
+                </div>
+                <h4 id="batchDedupHeadline" class="text-sm font-extrabold text-white mt-0.5">Similar burst frames grouped into unique sightings</h4>
+                <p id="batchDedupDetails" class="text-xs text-slate-300 mt-0.5">Representative anchor frames selected. Reviewing anchor frames verifies all duplicate pictures at once.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <div class="inline-flex rounded-lg bg-black/60 p-1 border border-teal-800/60 text-xs">
+                <button id="btnViewClusters" type="button" onclick="setBatchViewMode('clusters')" class="px-3 py-1 rounded font-bold text-xs bg-teal-500 text-black shadow-sm transition">
+                  📂 Grouped Sightings (<span id="statClusterCount">0</span>)
+                </button>
+                <button id="btnViewAllFrames" type="button" onclick="setBatchViewMode('all')" class="px-3 py-1 rounded font-bold text-xs text-slate-400 hover:text-white transition">
+                  📑 All Frames (<span id="statAllFramesCount">0</span>)
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Results Section -->
+        <div class="space-y-3">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <h4 class="font-bold text-sm text-slate-200 flex items-center gap-2">
+              <span>Detected Animals & Identified Names</span>
+              <span id="batchResultsTimestamp" class="text-[10px] font-mono text-emerald-400 font-bold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-800/60 hidden"></span>
+            </h4>
+            <div class="flex items-center gap-2">
+              <span id="batchResultsCount" class="text-xs font-mono text-slate-400">0 images processed</span>
+              <button id="btnExportBatchExcel" onclick="downloadBatchExcel()" class="hidden px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs flex items-center gap-1.5 transition shadow-sm">
+                <span>📊 Generate Sheet (.xlsx)</span>
+              </button>
+            </div>
+          </div>
+          <div id="batchResultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="col-span-full py-12 text-center text-slate-500 text-xs">
+              <span class="text-3xl block mb-2">📸</span>
+              Select and upload multiple photos above to view all their detected animal names, confidence ratings, and gallery previews here.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 3: SPATIAL STATIONS -->
+    <div id="tabContent-spatial" class="hidden space-y-6">
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-4">
+        <div>
+          <h3 class="font-bold text-base text-slate-100">
+            <span>Monitored Camera Trap Stations (Southwestern Ecological Network)</span>
+          </h3>
+          <p class="text-xs text-slate-400">Encounter volumes, false-trigger rates, and dominant wildlife per deployment site</p>
+        </div>
+
+        <!-- STATIONS GRID -->
+        <div id="spatialStationsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <!-- SPECIES CO-OCCURRENCE TABLE -->
+        <div class="mt-6 pt-6 border-t border-emerald-950/80">
+          <h4 class="font-semibold text-sm text-slate-200 mb-3">
+            <span>Top Species Spatial Co-Occurrences</span>
+          </h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-[#0e1612] text-slate-400 uppercase font-mono text-[10px]">
+                <tr>
+                  <th class="p-3">Species Pair</th>
+                  <th class="p-3">Shared Camera Stations</th>
+                  <th class="p-3">Ecological Relationship</th>
+                </tr>
+              </thead>
+              <tbody id="coOccurrenceTableBody" class="divide-y divide-emerald-950/40">
+                <!-- Rendered dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: LIVE INFERENCE & UPLOAD -->
+    <div id="tabContent-upload" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        <!-- DROPZONE / UPLOADER -->
+        <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-4">
+          <div>
+            <h3 class="font-bold text-base text-slate-100">
+              <span>Live Image Inference & Empty Filter Test</span>
+            </h3>
+            <p class="text-xs text-slate-400">Upload any camera-trap or wildlife photo to test real-time detection, empty filtering, and species classification.</p>
+          </div>
+
+          <div id="dropZone" onclick="document.getElementById('fileUploadInput').click()" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="border-2 border-dashed border-emerald-700/60 hover:border-emerald-500 rounded-xl p-8 text-center cursor-pointer transition bg-emerald-950/10 hover:bg-emerald-950/20">
+            <input type="file" id="fileUploadInput" onchange="handleFileSelected(event)" accept="image/*" class="hidden" />
+            <div class="flex flex-col items-center space-y-3">
+              <div class="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 text-xl">
+                📥
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-slate-200">Click to upload or drag & drop</p>
+                <p class="text-xs text-slate-400 mt-0.5">JPEG, PNG, or WebP camera-trap frames</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- UPLOAD FORM META -->
+          <div class="grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <label class="block text-slate-400 font-medium mb-1">Simulated Station ID:</label>
+              <select id="uploadStationSelect" class="w-full bg-[#0e1612] border border-emerald-900/60 rounded-lg p-2 text-slate-200">
+                <option value="loc_01">loc_01: Riparian Arroyo</option>
+                <option value="loc_03">loc_03: Oaks Waterhole</option>
+                <option value="loc_04">loc_04: Canyon Creek</option>
+                <option value="loc_07">loc_07: Culvert Underpass</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-slate-400 font-medium mb-1">Detection Threshold:</label>
+              <input type="range" id="uploadThresholdSlider" min="0.2" max="0.8" step="0.05" value="0.45" oninput="document.getElementById('threshVal').innerText = this.value" class="w-full accent-emerald-500 mt-2" />
+              <div class="text-[10px] text-slate-400 text-right">Threshold: <span id="threshVal">0.45</span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- LIVE RESULT PREVIEW -->
+        <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-4">
+          <h3 class="font-bold text-base text-slate-100">
+            <span>Real-Time Inference Output</span>
+          </h3>
+
+          <div id="uploadResultContainer" class="text-center py-16 text-slate-500 text-xs">
+            <div class="text-3xl mb-2">📸</div>
+            <p>Upload a camera frame to view animal bounding boxes, empty filtering verdict, and species classification.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 5: FEATHERLESS AI INSIGHTS STUDIO -->
+    <div id="tabContent-featherless" class="hidden space-y-6">
+      <div class="bg-[#121c17] border border-emerald-900/40 rounded-xl p-5 space-y-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h3 class="font-bold text-base text-slate-100">
+              <span>Featherless AI — Ecological Synthesis & Narrative Studio</span>
+            </h3>
+            <p class="text-xs text-slate-400">Synthesizes filtered telemetry into publication-ready executive findings and management recommendations.</p>
+          </div>
+          <button id="btnGenerateSummary" onclick="generateEcologicalSummary()" class="flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs shadow-lg shadow-emerald-950 transition">
+            <span>✨ Generate Synthesis</span>
+          </button>
+        </div>
+
+        <!-- Custom Prompt Input -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Tailored Researcher Focus (Optional):</label>
+          <input type="text" id="customSummaryPrompt" placeholder="e.g. Focus on nocturnal predator-prey timing overlap and recommend optimal camera maintenance schedules..." class="w-full bg-[#0e1612] border border-emerald-900/60 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-600 focus:outline-none focus:border-emerald-500" />
+        </div>
+
+        <!-- OUTPUT RENDER AREA -->
+        <div class="border border-emerald-950/80 rounded-xl bg-[#0a0f0d] p-6 relative">
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-emerald-950/60 text-xs text-slate-400">
+            <div class="flex items-center space-x-2">
+              <span id="summaryProviderBadge" class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 font-mono text-[10px] border border-emerald-500/20">Featherless AI</span>
+              <span id="summaryTimestamp" class="text-[11px] font-mono">Ready to generate</span>
+            </div>
+            <button onclick="copySummaryText()" class="hover:text-emerald-400 flex items-center space-x-1 transition text-xs">
+              <span>📋 Copy Markdown</span>
+            </button>
+          </div>
+          <div id="summaryMarkdownContent" class="text-xs leading-relaxed space-y-4 text-slate-300">
+            <p class="italic text-slate-500">Click "Generate Synthesis" to initiate comprehensive ecological analysis of current sightings, diel circadian rhythms, and spatial biodiversity indices.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- IMAGE INSPECTOR MODAL -->
+  <div id="inspectorModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#101814] border border-emerald-800/60 rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[92vh]">
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-emerald-950/80 flex items-center justify-between">
+        <div class="flex items-center space-x-2">
+          <span>🔍</span>
+          <span id="modalImageId" class="font-bold text-sm text-white">Image Inspection</span>
+        </div>
+        <button onclick="closeInspectorModal()" class="text-slate-400 hover:text-white p-1 rounded-lg text-lg">
+          ✕
+        </button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="p-5 overflow-y-auto space-y-5 flex-1">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <!-- Canvas with bounding box -->
+          <div class="relative bg-black rounded-xl overflow-hidden border border-emerald-950 flex items-center justify-center min-h-[300px]">
+            <canvas id="inspectorCanvas" class="max-w-full max-h-[380px] object-contain"></canvas>
+            <div id="inspectorNightBadge" class="absolute top-2 left-2 hud-tag px-2 py-1 rounded text-[10px] text-amber-300 font-mono hidden">
+              IR-FLASH 850nm
+            </div>
+          </div>
+
+          <!-- Metadata & Predictions -->
+          <div class="space-y-4 text-xs">
+            <!-- Rare / Dangerous Alert Banner in Inspector -->
+            <div id="modalAlertBox" class="hidden p-3 rounded-xl bg-gradient-to-r from-red-950/90 via-[#260505] to-amber-950/80 border-2 border-red-500/80 space-y-1.5 text-xs text-red-200">
+              <div class="flex items-center justify-between">
+                <span id="modalAlertBadge" class="font-extrabold text-red-200 flex items-center gap-1 uppercase tracking-wider text-[11px]">
+                  <span>🚨</span> RARE & DANGEROUS ANIMAL
+                </span>
+                <span id="modalAlertLevel" class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-red-600 text-white uppercase">CRITICAL</span>
+              </div>
+              <p id="modalAlertTitle" class="font-bold text-white text-xs"></p>
+              <p id="modalAlertMessage" class="text-[11px] text-red-100 leading-tight"></p>
+              <div id="modalAlertProtocol" class="text-[10px] text-amber-300 italic pt-1 border-t border-red-900/60"></div>
+            </div>
+
+            <!-- Sighting Cluster & Duplicate Relationship Banner -->
+            <div id="modalDuplicateBox" class="hidden p-3 rounded-xl bg-teal-950/40 border border-teal-700/50 space-y-1 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="font-bold text-teal-300 flex items-center gap-1.5 uppercase tracking-wide text-[11px]">
+                  <span>🔄</span> Sighting Cluster & Deduplication
+                </span>
+                <span id="modalDuplicateRoleBadge" class="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-teal-600 text-black uppercase">Anchor Frame</span>
+              </div>
+              <p id="modalDuplicateTitle" class="text-white font-semibold text-xs"></p>
+              <p id="modalDuplicateDetails" class="text-slate-300 text-[11px]"></p>
+            </div>
+
+            <!-- Species Primary Banner -->
+            <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-700/40">
+              <span class="text-[10px] uppercase font-bold text-emerald-400 tracking-wider">Classification Result</span>
+              <div class="flex items-baseline justify-between mt-1">
+                <span id="modalSpeciesName" class="text-lg font-bold text-white">--</span>
+                <span id="modalConfidence" class="text-emerald-300 font-mono font-bold text-sm">--%</span>
+              </div>
+              <p id="modalScientificName" class="italic text-[11px] text-slate-400">--</p>
+            </div>
+
+            <!-- Top Candidates -->
+            <div>
+              <span class="text-slate-400 font-semibold block mb-2">Top Predicted Candidates:</span>
+              <div id="modalTopPredictions" class="space-y-1.5 font-mono text-[11px]">
+                <!-- Populated dynamically -->
+              </div>
+            </div>
+
+            <!-- Uncertainty & Diagnostics -->
+            <div>
+              <span class="text-slate-400 font-semibold block mb-1">Uncertainty & Diagnostics:</span>
+              <div id="modalUncertaintyFlags" class="flex flex-wrap gap-1.5 mt-1">
+                <!-- Badges -->
+              </div>
+            </div>
+
+            <!-- Camera Metadata -->
+            <div class="border-t border-emerald-950/80 pt-3 grid grid-cols-2 gap-2 text-slate-400 font-mono text-[10px]">
+              <div>Station: <span id="modalLocation" class="text-slate-200">--</span></div>
+              <div>Timestamp: <span id="modalDatetime" class="text-slate-200">--</span></div>
+              <div>Sequence: <span id="modalSeqId" class="text-slate-200">--</span></div>
+              <div>Frame: <span id="modalFrameNum" class="text-slate-200">--</span></div>
+            </div>
+
+            <!-- Action buttons in modal -->
+            <div class="flex flex-col gap-2 pt-2">
+              <button id="btnExplainModal" onclick="explainCurrentImage()" class="w-full py-2.5 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs flex items-center justify-center space-x-2 transition cursor-pointer">
+                <span>🪶 Explain Detection with Featherless AI</span>
+              </button>
+              <button id="btnDeleteModal" onclick="deleteCurrentImage()" class="w-full py-2 px-4 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30 font-semibold text-xs flex items-center justify-center space-x-2 transition cursor-pointer">
+                <span>🗑️ Remove from Gallery</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Explanation Output Box -->
+        <div id="modalExplanationBox" class="hidden p-4 rounded-xl bg-[#090d0b] border border-emerald-900/60 text-xs text-slate-300 space-y-2">
+          <div class="font-bold text-emerald-400 text-xs">
+            <span>Featherless AI Rationale & Morphological Field Marks:</span>
+          </div>
+          <p id="modalExplanationText" class="leading-relaxed"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEATHERLESS CONFIG MODAL -->
+  <div id="configModal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-[#101814] border border-emerald-800/60 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl p-5 space-y-4">
+      <div class="flex items-center justify-between border-b border-emerald-950/80 pb-3">
+        <h4 class="font-bold text-sm text-white">
+          <span>Featherless AI Configuration</span>
+        </h4>
+        <button onclick="closeConfigModal()" class="text-slate-400 hover:text-white">
+          ✕
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs">
+        <p class="text-slate-400">Enter your Featherless AI API key to enable live cloud inference with open LLMs (Llama 3.1, Mistral, Qwen).</p>
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Featherless API Key:</label>
+          <input type="password" id="cfgApiKeyInput" placeholder="sk-featherless-..." class="w-full bg-[#0a0f0d] border border-emerald-900/60 rounded-lg p-2.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-emerald-500" />
+        </div>
+        <div>
+          <label class="block font-medium text-slate-300 mb-1">Model Name:</label>
+          <select id="cfgModelSelect" class="w-full bg-[#0a0f0d] border border-emerald-900/60 rounded-lg p-2.5 text-slate-200 focus:outline-none focus:border-emerald-500">
+            <option value="meta-llama/Meta-Llama-3.1-8B-Instruct">meta-llama/Meta-Llama-3.1-8B-Instruct (Recommended)</option>
+            <option value="mistralai/Mistral-7B-Instruct-v0.3">mistralai/Mistral-7B-Instruct-v0.3</option>
+            <option value="Qwen/Qwen2.5-7B-Instruct">Qwen/Qwen2.5-7B-Instruct</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex items-center justify-end space-x-2 pt-2 border-t border-emerald-950/80">
+        <button onclick="closeConfigModal()" class="px-3 py-1.5 rounded-lg text-slate-400 hover:text-white text-xs">Cancel</button>
+        <button onclick="saveFeatherlessConfig()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black font-bold text-xs transition">Save Settings</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- DASHBOARD JAVASCRIPT LOGIC -->
+  <script>
+    let dielChartInstance = null;
+    let speciesChartInstance = null;
+    let currentInspectorRecord = null;
+
+    function safeIcons() {
+      try {
+        if (window.lucide && typeof window.lucide.createIcons === 'function') {
+          window.lucide.createIcons();
+        }
+      } catch (e) {
+        // Safe ignore
+      }
+    }
+
+    // INITIALIZATION
+    window.addEventListener('DOMContentLoaded', async () => {
+      safeIcons();
+      try {
+        await Promise.all([
+          fetchOverviewMetrics(),
+          fetchTemporalAnalytics(),
+          fetchSpatialAnalytics(),
+          loadGalleryImages(),
+          checkFeatherlessStatus()
+        ]);
+      } catch (err) {
+        console.error('Initialization error:', err);
+      }
+    });
+
+    // TAB SWITCHER
+    function switchTab(tabName) {
+      const tabs = ['analytics', 'gallery', 'batch', 'spatial', 'upload', 'featherless'];
+      tabs.forEach(t => {
+        const btn = document.getElementById(`tabBtn-${t}`);
+        const content = document.getElementById(`tabContent-${t}`);
+        if (!btn || !content) return;
+        if (t === tabName) {
+          btn.className = "tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-semibold whitespace-nowrap";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "tab-btn flex items-center space-x-2 px-4 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/40 whitespace-nowrap";
+          content.classList.add('hidden');
+        }
+      });
+      safeIcons();
+    }
+
+    // AUDIO CHIME ALERT (Synthesized Web Audio API)
+    function playAlertChime() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.4);
+      } catch (e) {
+        console.warn('Audio alert notice:', e);
+      }
+    }
+
+    // 1. OVERVIEW METRICS
+    async function fetchOverviewMetrics() {
+      try {
+        const res = await fetch('/api/analytics/overview');
+        const data = await res.json();
+
+        document.getElementById('kpiTotalImages').innerText = (data.total_images || 0).toLocaleString();
+        document.getElementById('kpiEmptyRate').innerText = `${data.empty_rate_pct || 0}%`;
+        document.getElementById('kpiEmptyCount').innerText = `${(data.empty_count || 0).toLocaleString()} frames removed`;
+        document.getElementById('kpiHoursSaved').innerText = `${data.hours_saved || 0} hrs`;
+        document.getElementById('kpiSpeciesRichness').innerText = data.species_richness || 0;
+        document.getElementById('kpiShannonIndex').innerText = (data.shannon_diversity_index || 0).toFixed(2);
+        document.getElementById('kpiEvenness').innerText = `Evenness J': ${(data.pielou_evenness || 0).toFixed(2)}`;
+        document.getElementById('kpiReviewRequired').innerText = data.review_required_count || 0;
+
+        renderSpeciesChart(data.species_distribution || {});
+      } catch (err) {
+        console.error('Error fetching overview metrics:', err);
+      }
+    }
+
+    // 2. TEMPORAL & DIEL ANALYTICS
+    async function fetchTemporalAnalytics() {
+      try {
+        const res = await fetch('/api/analytics/temporal');
+        const data = await res.json();
+
+        renderDielChart(data.hourly_distribution || []);
+        renderDielCards(data.diel_classifications || {});
+      } catch (err) {
+        console.error('Error fetching temporal analytics:', err);
+      }
+    }
+
+    function renderDielChart(hourlyData) {
+      const container = document.getElementById('dielChartContainer');
+      if (!window.Chart) {
+        // Native fallback SVG if Chart.js is not loaded
+        const maxVal = Math.max(...hourlyData.map(h => h.total), 1);
+        container.innerHTML = `
+          <div style="display:flex; align-items:flex-end; gap:4px; height:100%; width:100%; padding-top:20px;">
+            ${hourlyData.map(h => {
+              const hPct = Math.round((h.total / maxVal) * 100);
+              let color = '#10b981';
+              if (h.hour < 5 || h.hour > 20) color = '#6366f1';
+              else if ((h.hour >= 5 && h.hour <= 7) || (h.hour >= 18 && h.hour <= 20)) color = '#f59e0b';
+              return `<div title="${h.hour_label}: ${h.total}" style="flex:1; background:${color}; height:${Math.max(hPct, 8)}%; border-radius:3px 3px 0 0;"></div>`;
+            }).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      const canvas = document.getElementById('dielChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const labels = hourlyData.map(h => h.hour_label);
+      const totals = hourlyData.map(h => h.total);
+
+      const barColors = hourlyData.map(h => {
+        if (h.hour < 5 || h.hour > 20) return '#6366f1';
+        if ((h.hour >= 5 && h.hour <= 7) || (h.hour >= 18 && h.hour <= 20)) return '#f59e0b';
+        return '#10b981';
+      });
+
+      if (dielChartInstance) dielChartInstance.destroy();
+
+      dielChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Independent Sightings',
+            data: totals,
+            backgroundColor: barColors,
+            borderRadius: 4,
+            maxBarThickness: 24
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 } }
+            },
+            y: {
+              grid: { color: 'rgba(255,255,255,0.05)' },
+              ticks: { color: '#94a3b8', font: { size: 10 }, stepSize: 2 }
+            }
+          }
+        }
+      });
+    }
+
+    function renderSpeciesChart(speciesDist) {
+      const container = document.getElementById('speciesChartContainer');
+      const labels = Object.keys(speciesDist).map(k => k.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase()));
+      const data = Object.values(speciesDist);
+
+      if (!window.Chart) {
+        // Simple HTML list fallback
+        container.innerHTML = `
+          <div style="width:100%; font-size:12px; space-y:8px;">
+            ${labels.slice(0, 7).map((l, i) => `
+              <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+                <span>${l}</span>
+                <strong style="color:#10b981;">${data[i]}</strong>
+              </div>
+            `).join('')}
+          </div>
+        `;
+        return;
+      }
+
+      const canvas = document.getElementById('speciesChart');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+
+      const colors = [
+        '#10b981', '#3b82f6', '#f59e0b', '#ec4899', '#8b5cf6',
+        '#14b8a6', '#f97316', '#06b6d4', '#84cc16', '#64748b'
+      ];
+
+      if (speciesChartInstance) speciesChartInstance.destroy();
+
+      speciesChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: labels,
+          datasets: [{
+            data: data,
+            backgroundColor: colors.slice(0, labels.length),
+            borderColor: '#121c17',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#cbd5e1', font: { size: 10 }, boxWidth: 10 }
+            }
+          },
+          cutout: '68%'
+        }
+      });
+    }
+
+    function renderDielCards(classifications) {
+      const container = document.getElementById('dielCardsContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      for (const [species, info] of Object.entries(classifications)) {
+        let badgeColor = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20';
+        if (info.category.includes('Nocturnal')) badgeColor = 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20';
+        if (info.category.includes('Crepuscular')) badgeColor = 'bg-amber-500/10 text-amber-400 border-amber-500/20';
+
+        const card = document.createElement('div');
+        card.className = 'p-3 rounded-lg bg-[#0e1612] border border-emerald-950/80 space-y-1.5';
+        card.innerHTML = `
+          <div class="flex items-center justify-between">
+            <span class="font-bold text-xs text-slate-200 capitalize">${species.replace('_', ' ')}</span>
+            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded border ${badgeColor}">${info.category}</span>
+          </div>
+          <div class="grid grid-cols-3 gap-1 text-[10px] text-slate-400 font-mono pt-1">
+            <div>Night: <span class="text-slate-200">${info.night_pct}%</span></div>
+            <div>Crep: <span class="text-slate-200">${info.crepuscular_pct}%</span></div>
+            <div>Day: <span class="text-slate-200">${info.day_pct}%</span></div>
+          </div>
+        `;
+        container.appendChild(card);
+      }
+    }
+
+    // 3. SPATIAL STATIONS
+    async function fetchSpatialAnalytics() {
+      try {
+        const res = await fetch('/api/analytics/spatial');
+        const data = await res.json();
+
+        const grid = document.getElementById('spatialStationsGrid');
+        if (grid) {
+          grid.innerHTML = '';
+          (data.stations || []).forEach(st => {
+            const card = document.createElement('div');
+            card.className = 'p-4 rounded-xl bg-[#0e1612] border border-emerald-950/80 space-y-2';
+            card.innerHTML = `
+              <div class="flex items-start justify-between">
+                <div>
+                  <span class="text-[10px] font-mono text-emerald-400 uppercase font-bold">${st.location_id}</span>
+                  <h4 class="font-bold text-xs text-slate-200 mt-0.5">${st.name}</h4>
+                </div>
+                <span class="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 text-[10px] font-mono font-bold">${st.wildlife_events} events</span>
+              </div>
+              <p class="text-[11px] text-slate-400">${st.habitat}</p>
+              <div class="border-t border-emerald-950/60 pt-2 grid grid-cols-2 gap-1 text-[10px] text-slate-400 font-mono">
+                <div>Total: <span class="text-slate-200">${st.total_images}</span></div>
+                <div>Empty: <span class="text-slate-200">${st.empty_rate_pct}%</span></div>
+                <div class="col-span-2">Dominant: <span class="text-emerald-400 capitalize">${(st.dominant_species || '').replace('_', ' ')}</span></div>
+              </div>
+            `;
+            grid.appendChild(card);
+          });
+        }
+
+        const tbody = document.getElementById('coOccurrenceTableBody');
+        if (tbody) {
+          tbody.innerHTML = '';
+          (data.top_co_occurrences || []).forEach(item => {
+            const row = document.createElement('tr');
+            row.className = 'hover:bg-emerald-950/20 transition';
+            row.innerHTML = `
+              <td class="p-3 font-semibold capitalize text-slate-200">${item.species_a.replace('_', ' ')} &bull; ${item.species_b.replace('_', ' ')}</td>
+              <td class="p-3 font-mono text-emerald-400">${item.shared_stations} Stations</td>
+              <td class="p-3 text-slate-400">Predator-Prey / Guild Overlap</td>
+            `;
+            tbody.appendChild(row);
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching spatial analytics:', err);
+      }
+    }
+
+    // 4. GALLERY & INSPECTOR
+    let currentGalleryOffset = 0;
+    const galleryPageLimit = 48;
+    let totalGalleryRecords = 0;
+
+    function changeGalleryPage(delta) {
+      const nextOffset = currentGalleryOffset + delta * galleryPageLimit;
+      if (nextOffset < 0 || (nextOffset >= totalGalleryRecords && totalGalleryRecords > 0)) return;
+      currentGalleryOffset = nextOffset;
+      loadGalleryImages();
+    }
+
+    async function loadGalleryImages() {
+      const sp = document.getElementById('galleryFilterSpecies') ? document.getElementById('galleryFilterSpecies').value : '';
+      const loc = document.getElementById('galleryFilterLocation') ? document.getElementById('galleryFilterLocation').value : '';
+      const incEmpty = document.getElementById('galleryFilterEmpty') ? document.getElementById('galleryFilterEmpty').checked : true;
+      const alertsOnly = document.getElementById('galleryFilterAlerts') ? document.getElementById('galleryFilterAlerts').checked : false;
+      const dedupBursts = document.getElementById('galleryFilterDedup') ? document.getElementById('galleryFilterDedup').checked : false;
+
+      let url = `/api/dataset/images?include_empty=${incEmpty}&limit=${galleryPageLimit}&offset=${currentGalleryOffset}`;
+      if (sp) url += `&species=${sp}`;
+      if (loc) url += `&locations=${loc}`;
+      if (alertsOnly) url += `&alerts_only=true`;
+      if (dedupBursts) url += `&deduplicate_bursts=true`;
+
+      try {
+        const res = await fetch(url);
+        const data = await res.json();
+        totalGalleryRecords = data.total || 0;
+
+        const summary = document.getElementById('galleryCountSummary');
+        const startNum = data.records.length > 0 ? (currentGalleryOffset + 1).toLocaleString() : 0;
+        const endNum = (currentGalleryOffset + data.records.length).toLocaleString();
+        if (summary) summary.innerText = `Showing ${startNum} - ${endNum} of ${(data.total || 0).toLocaleString()} images (Caltech 243,100 Benchmark)`;
+
+        const pageIndicator = document.getElementById('galleryPageIndicator');
+        const curPage = Math.floor(currentGalleryOffset / galleryPageLimit) + 1;
+        const totalPages = Math.ceil(totalGalleryRecords / galleryPageLimit) || 1;
+        if (pageIndicator) pageIndicator.innerText = `Page ${curPage} of ${totalPages.toLocaleString()}`;
+
+        const btnPrev = document.getElementById('btnPrevPage');
+        const btnNext = document.getElementById('btnNextPage');
+        if (btnPrev) btnPrev.disabled = (currentGalleryOffset <= 0);
+        if (btnNext) btnNext.disabled = (currentGalleryOffset + galleryPageLimit >= totalGalleryRecords);
+
+        const grid = document.getElementById('galleryGrid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        data.records.forEach(rec => {
+          const card = document.createElement('div');
+          card.onclick = () => openInspector(rec);
+
+          const isAnimal = !rec.is_empty && rec.species !== 'empty' && rec.species !== 'not_an_animal';
+          const isAlert = rec.is_rare || rec.is_dangerous || (rec.alert && rec.alert.has_alert);
+          const isDangerous = rec.is_dangerous || (rec.alert && rec.alert.is_dangerous);
+          const isAnchor = rec.is_anchor;
+          const isDuplicate = rec.is_duplicate;
+          const displayName = isAnimal ? (rec.common_name || rec.species).replace('_', ' ') : 'Animal Not Detected';
+          const confPct = Math.round(rec.confidence * 100);
+
+          card.className = isAlert
+            ? 'group cursor-pointer bg-[#180b0b] border-2 border-red-500/80 hover:border-red-400 rounded-xl overflow-hidden shadow-sm transition transform hover:-translate-y-1 relative ring-2 ring-red-500/20'
+            : (isDuplicate
+                ? 'group cursor-pointer bg-[#0e1612]/70 border border-amber-900/40 hover:border-amber-500/60 rounded-xl overflow-hidden shadow-sm transition transform hover:-translate-y-1 relative opacity-85'
+                : 'group cursor-pointer bg-[#0e1612] border border-emerald-950/80 hover:border-emerald-500/60 rounded-xl overflow-hidden shadow-sm transition transform hover:-translate-y-1 relative');
+
+          card.innerHTML = `
+            <div class="h-44 bg-black relative overflow-hidden">
+              <img src="${rec.image_url}" alt="${displayName}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy" />
+              <div class="absolute top-2 left-2 flex flex-col space-y-1">
+                <span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-slate-300">${rec.location}</span>
+                ${isAlert ? `<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-extrabold bg-red-950/90 text-red-300 border border-red-500/60 animate-pulse">🚨 ${isDangerous ? 'DANGEROUS' : 'RARE'}</span>` : ''}
+                ${isAnchor ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-teal-950/90 text-teal-300 border border-teal-600/60">⭐ ANCHOR</span>' : ''}
+                ${isDuplicate ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-950/90 text-amber-300 border border-amber-600/60">🔄 DUPLICATE</span>' : ''}
+                ${isAnimal ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 font-bold">ANIMAL</span>' : '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-rose-400 font-bold">NO ANIMAL</span>'}
+              </div>
+              <div class="absolute bottom-2 right-2 hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 font-bold">
+                ${confPct}% Conf
+              </div>
+            </div>
+            <div class="p-3">
+              <div class="flex items-center justify-between">
+                <h4 class="font-bold text-xs ${isAlert ? 'text-red-300' : (isAnimal ? 'text-slate-200' : 'text-rose-300')} capitalize">${displayName}</h4>
+                <span class="text-[10px] font-mono text-slate-400">${(rec.datetime || '').slice(11, 16)}</span>
+              </div>
+              <div class="flex items-center space-x-1 mt-1.5 flex-wrap gap-1">
+                ${(rec.uncertainty_flags || []).slice(0, 2).map(f => `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-900 border border-slate-800 text-slate-400">${f}</span>`).join('')}
+              </div>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+      } catch (err) {
+        console.error('Error loading gallery images:', err);
+      }
+    }
+
+    function openInspector(rec) {
+      currentInspectorRecord = rec;
+      const isAnimal = !rec.is_empty && rec.species !== 'empty' && rec.species !== 'not_an_animal';
+      document.getElementById('modalImageId').innerText = `Inspection: ${rec.id} (${rec.location}${rec.caltech_station_id ? ' • Caltech St. ' + rec.caltech_station_id : ''})`;
+      document.getElementById('modalSpeciesName').innerText = isAnimal ? (rec.common_name || rec.species.replace('_', ' ').toUpperCase()) : 'Animal Not Detected';
+      document.getElementById('modalScientificName').innerText = isAnimal ? (rec.scientific_name || 'Fauna') : 'Non-wildlife or empty frame';
+      document.getElementById('modalConfidence').innerText = `${Math.round(rec.confidence * 100)}%`;
+      document.getElementById('modalLocation').innerText = `${rec.location}${rec.caltech_station_id ? ' (Caltech Station ' + rec.caltech_station_id + ')' : ''}`;
+      document.getElementById('modalDatetime').innerText = rec.datetime;
+      document.getElementById('modalSeqId').innerText = rec.seq_id || 'N/A';
+      document.getElementById('modalFrameNum').innerText = `${rec.frame_num} / ${rec.seq_num_frames}`;
+
+      // Populate Rare / Dangerous Wildlife Alert Box
+      const isAlert = rec.is_rare || rec.is_dangerous || (rec.alert && rec.alert.has_alert);
+      const alertBox = document.getElementById('modalAlertBox');
+      if (alertBox) {
+        if (isAlert) {
+          alertBox.classList.remove('hidden');
+          const alertObj = rec.alert || {};
+          document.getElementById('modalAlertBadge').innerHTML = `<span>🚨</span> ${alertObj.badge || (rec.is_dangerous ? 'DANGEROUS WILDLIFE ALERT' : 'RARE SPECIES SIGHTING')}`;
+          document.getElementById('modalAlertLevel').innerText = alertObj.alert_level || 'CRITICAL';
+          document.getElementById('modalAlertTitle').innerText = alertObj.title || `${rec.common_name || rec.species} Alert`;
+          document.getElementById('modalAlertMessage').innerText = alertObj.message || alertObj.description || 'Rare or dangerous wildlife detected. Field awareness required.';
+          document.getElementById('modalAlertProtocol').innerText = `Safety Protocol: ${alertObj.safety_protocol || 'Maintain safe distance and report coordinates.'}`;
+        } else {
+          alertBox.classList.add('hidden');
+        }
+      }
+
+      // Populate Sighting Cluster & Duplicate Deduplication Box
+      const dupBox = document.getElementById('modalDuplicateBox');
+      if (dupBox) {
+        if (rec.cluster_id || rec.is_duplicate || rec.is_anchor || (rec.seq_id && rec.seq_id !== 'N/A')) {
+          dupBox.classList.remove('hidden');
+          const roleBadge = document.getElementById('modalDuplicateRoleBadge');
+          const dupTitle = document.getElementById('modalDuplicateTitle');
+          const dupDetails = document.getElementById('modalDuplicateDetails');
+          
+          if (rec.is_anchor) {
+            roleBadge.className = 'px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-teal-400 text-black uppercase';
+            roleBadge.innerText = '⭐ ANCHOR FRAME';
+            dupTitle.innerText = `Representative Photo for ${rec.cluster_id || 'Encounter'}`;
+            dupDetails.innerText = 'Selected as the sharpest and highest-confidence anchor frame. Redundant burst frames inherit this classification.';
+          } else if (rec.is_duplicate) {
+            const simVal = rec.similarity_pct || (rec.similarity_to_anchor ? Math.round(rec.similarity_to_anchor * 100) : 98);
+            roleBadge.className = 'px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-amber-500 text-black uppercase';
+            roleBadge.innerText = `🔄 DUPLICATE (${simVal}% MATCH)`;
+            dupTitle.innerText = `Near-Duplicate of ${rec.duplicate_of || 'Anchor Frame'}`;
+            dupDetails.innerText = `Identified as redundant burst frame (${simVal}% visual similarity). Manual re-verification eliminated to save researcher review time.`;
+          } else {
+            roleBadge.className = 'px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-700 text-slate-300 uppercase';
+            roleBadge.innerText = 'INDEPENDENT ENCOUNTER';
+            dupTitle.innerText = `Sequence Sighting: ${rec.seq_id || 'loc_' + rec.location}`;
+            dupDetails.innerText = 'Unique independent camera-trap sighting sequence.';
+          }
+        } else {
+          dupBox.classList.add('hidden');
+        }
+      }
+
+      const canvas = document.getElementById('inspectorCanvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        ctx.drawImage(img, 0, 0);
+
+        if (!rec.is_empty && rec.bbox && rec.bbox[2] > 0) {
+          const [ymin, xmin, ymax, xmax] = rec.bbox;
+          const bx = xmin * img.width;
+          const by = ymin * img.height;
+          const bw = (xmax - xmin) * img.width;
+          const bh = (ymax - ymin) * img.height;
+
+          ctx.strokeStyle = '#10b981';
+          ctx.lineWidth = 4;
+          ctx.strokeRect(bx, by, bw, bh);
+
+          ctx.fillStyle = 'rgba(16, 185, 129, 0.85)';
+          ctx.fillRect(bx, by - 24, bw > 140 ? bw : 140, 24);
+
+          ctx.fillStyle = '#000';
+          ctx.font = 'bold 13px monospace';
+          ctx.fillText(`${rec.species.toUpperCase()} ${Math.round(rec.confidence * 100)}%`, bx + 6, by - 7);
+        }
+      };
+      img.src = rec.image_url;
+
+      let isNight = false;
+      if (typeof rec.is_night === 'boolean') {
+        isNight = rec.is_night;
+      } else if (rec.uncertainty_flags && rec.uncertainty_flags.some(f => f.includes('Night') || f.includes('IR') || f.includes('Low Light'))) {
+        isNight = true;
+      } else if (!rec.is_upload && rec.caltech_station_id && rec.datetime) {
+        const hr = parseInt(rec.datetime.slice(11, 13));
+        isNight = !isNaN(hr) && (hr < 6 || hr >= 19);
+      }
+      document.getElementById('inspectorNightBadge').classList.toggle('hidden', !isNight);
+
+      const flagsContainer = document.getElementById('modalUncertaintyFlags');
+      flagsContainer.innerHTML = '';
+      (rec.uncertainty_flags || ['Standard Detection']).forEach(f => {
+        const span = document.createElement('span');
+        span.className = 'px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-950/60 border border-emerald-800 text-emerald-300';
+        span.innerText = f;
+        flagsContainer.appendChild(span);
+      });
+
+      const topContainer = document.getElementById('modalTopPredictions');
+      topContainer.innerHTML = `
+        <div class="flex items-center justify-between py-0.5 border-b border-emerald-950/60">
+          <span class="text-emerald-400 capitalize">${rec.species.replace('_', ' ')}</span>
+          <span class="font-bold text-slate-200">${Math.round(rec.confidence * 100)}%</span>
+        </div>
+      `;
+
+      document.getElementById('modalExplanationBox').classList.add('hidden');
+      document.getElementById('inspectorModal').classList.remove('hidden');
+    }
+
+    function closeInspectorModal() {
+      document.getElementById('inspectorModal').classList.add('hidden');
+    }
+
+    async function deleteCurrentImage() {
+      if (!currentInspectorRecord) return;
+      if (!confirm(`Are you sure you want to remove this image (${currentInspectorRecord.id}) from the gallery?`)) return;
+
+      try {
+        const res = await fetch(`/api/dataset/images/${currentInspectorRecord.id}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        closeInspectorModal();
+        await fetchOverviewMetrics();
+        await loadGalleryImages();
+      } catch (err) {
+        alert('Error removing image: ' + err.message);
+      }
+    }
+
+    async function explainCurrentImage() {
+      if (!currentInspectorRecord) return;
+      const btn = document.getElementById('btnExplainModal');
+      btn.innerText = 'Analyzing with Featherless AI...';
+      btn.disabled = true;
+
+      let isNight = false;
+      if (typeof currentInspectorRecord.is_night === 'boolean') {
+        isNight = currentInspectorRecord.is_night;
+      } else if (currentInspectorRecord.uncertainty_flags && currentInspectorRecord.uncertainty_flags.some(f => f.includes('Night') || f.includes('IR') || f.includes('Low Light'))) {
+        isNight = true;
+      } else if (!currentInspectorRecord.is_upload && currentInspectorRecord.caltech_station_id && currentInspectorRecord.datetime) {
+        const hr = parseInt(currentInspectorRecord.datetime.slice(11, 13));
+        isNight = !isNaN(hr) && (hr < 6 || hr >= 19);
+      }
+
+      try {
+        const res = await fetch('/api/featherless/explain', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            species: currentInspectorRecord.species,
+            confidence: currentInspectorRecord.confidence,
+            uncertainty_flags: currentInspectorRecord.uncertainty_flags,
+            bbox: {
+              ymin: currentInspectorRecord.bbox ? currentInspectorRecord.bbox[0] : 0,
+              xmin: currentInspectorRecord.bbox ? currentInspectorRecord.bbox[1] : 0,
+              ymax: currentInspectorRecord.bbox ? currentInspectorRecord.bbox[2] : 1,
+              xmax: currentInspectorRecord.bbox ? currentInspectorRecord.bbox[3] : 1,
+            },
+            is_night: isNight
+          })
+        });
+        const data = await res.json();
+
+        document.getElementById('modalExplanationText').innerText = data.explanation;
+        document.getElementById('modalExplanationBox').classList.remove('hidden');
+      } catch (err) {
+        console.error('Error generating explanation:', err);
+      } finally {
+        btn.innerText = 'Explain Detection with Featherless AI';
+        btn.disabled = false;
+      }
+    }
+
+    // 5. BATCH MULTI-UPLOAD
+    function handleBatchDragOver(e) {
+      e.preventDefault();
+      const dz = document.getElementById('batchDropZone');
+      if (dz) dz.classList.add('border-emerald-400', 'bg-emerald-950/30');
+    }
+    function handleBatchDragLeave(e) {
+      e.preventDefault();
+      const dz = document.getElementById('batchDropZone');
+      if (dz) dz.classList.remove('border-emerald-400', 'bg-emerald-950/30');
+    }
+    function handleBatchDrop(e) {
+      e.preventDefault();
+      const dz = document.getElementById('batchDropZone');
+      if (dz) dz.classList.remove('border-emerald-400', 'bg-emerald-950/30');
+      if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+        uploadBatchFiles(e.dataTransfer.files);
+      }
+    }
+    function handleBatchSelected(e) {
+      if (e.target && e.target.files && e.target.files.length > 0) {
+        const isPending = window._pendingSheetGeneration;
+        window._pendingSheetGeneration = false;
+        uploadBatchFiles(e.target.files, isPending);
+      }
+    }
+
+    function triggerBatchUploadAndSheet() {
+      const fileInput = document.getElementById('batchFilesInput');
+      if (fileInput && fileInput.files && fileInput.files.length > 0) {
+        uploadBatchFiles(fileInput.files, true);
+      } else if (window.lastBatchResult) {
+        downloadBatchExcel(window.lastBatchResult);
+      } else {
+        window._pendingSheetGeneration = true;
+        fileInput.click();
+      }
+    }
+
+    async function uploadBatchFiles(fileList, forceGenerateSheet = false) {
+      if (!fileList || fileList.length === 0) return;
+      const station = document.getElementById('batchStationSelect') ? document.getElementById('batchStationSelect').value : 'loc_01';
+      const indicator = document.getElementById('batchProcessingIndicator');
+      const textEl = document.getElementById('batchProcessingText');
+      const banner = document.getElementById('batchSummaryBanner');
+      const grid = document.getElementById('batchResultsGrid');
+      const countLabel = document.getElementById('batchResultsCount');
+
+      if (indicator) indicator.classList.remove('hidden');
+      if (textEl) textEl.innerText = `Ingesting and classifying ${fileList.length} photos with MobileNetV2 ONNX neural network...`;
+
+      const formData = new FormData();
+      for (let i = 0; i < fileList.length; i++) {
+        formData.append('files', fileList[i]);
+      }
+      formData.append('location', station);
+
+      try {
+        const res = await fetch('/api/detection/predict-batch', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (indicator) indicator.classList.add('hidden');
+        if (banner) banner.classList.remove('hidden');
+
+        // Check for Rare & Dangerous Wildlife Alerts in batch
+        const alertBanner = document.getElementById('batchAlertBanner');
+        const hasBatchAlerts = data.has_alerts || (data.items || []).some(it => it.is_rare || it.is_dangerous);
+        if (hasBatchAlerts && alertBanner) {
+          playAlertChime();
+          alertBanner.classList.remove('hidden');
+          const summary = data.alert_summary || {};
+          document.getElementById('batchAlertHeadline').innerText = summary.headline || '🚨 CRITICAL WILDLIFE ALERT: Rare & Dangerous Animal Detected!';
+          document.getElementById('batchAlertAdvisory').innerText = summary.advisory || 'Rare or dangerous wildlife detected in this batch. Exercise heightened field caution.';
+          const speciesList = (summary.alert_species || []).join(', ') || 'Rare / Dangerous Wildlife';
+          document.getElementById('batchAlertSpeciesList').innerText = speciesList;
+          const badgeEl = document.getElementById('batchAlertBadge');
+          if (badgeEl) {
+            badgeEl.innerText = `${data.critical_alerts_count || data.rare_alerts_count || 1} CRITICAL SIGHTINGS`;
+          }
+        } else if (alertBanner) {
+          alertBanner.classList.add('hidden');
+        }
+
+        window.lastBatchResult = data;
+        const exportBtn = document.getElementById('btnExportBatchExcel');
+        if (exportBtn) exportBtn.classList.remove('hidden');
+
+        const timestampStr = data.timestamp || new Date().toISOString().replace('T', ' ').slice(0, 19);
+        const tsLabel = document.getElementById('batchResultsTimestamp');
+        if (tsLabel) {
+          tsLabel.innerText = `⏱ ${timestampStr}`;
+          tsLabel.classList.remove('hidden');
+        }
+        const statTs = document.getElementById('batchStatTimestamp');
+        if (statTs) statTs.innerText = timestampStr;
+
+        document.getElementById('batchStatTotal').innerText = data.total_processed;
+        document.getElementById('batchStatAnimals').innerText = data.total_processed - data.empty_filtered_count;
+        document.getElementById('batchStatEmpty').innerText = data.empty_filtered_count;
+        if (countLabel) countLabel.innerText = `${data.total_processed} images classified`;
+
+        // Update Duplicate & Sighting Clustering Banner
+        const dedupSummary = data.duplicate_summary || {};
+        const dedupBanner = document.getElementById('batchDedupBanner');
+        if (dedupBanner) {
+          if (dedupSummary && dedupSummary.duplicate_images_count > 0) {
+            dedupBanner.classList.remove('hidden');
+            const savingsBadge = document.getElementById('batchDedupSavingsBadge');
+            if (savingsBadge) savingsBadge.innerText = `${dedupSummary.workload_reduction_pct}% REVIEW TIME SAVED`;
+            const headline = document.getElementById('batchDedupHeadline');
+            if (headline) headline.innerText = `Grouped ${dedupSummary.total_images} photos into ${dedupSummary.unique_encounters_count} encounters (${dedupSummary.duplicate_images_count} duplicates grouped)`;
+            const details = document.getElementById('batchDedupDetails');
+            if (details) details.innerText = `Identified ${dedupSummary.multi_frame_clusters_count || 1} multi-frame burst sequences. Reviewing representative anchor frames verifies all duplicate pictures at once.`;
+          } else {
+            dedupBanner.classList.add('hidden');
+          }
+        }
+
+        const statClusterEl = document.getElementById('statClusterCount');
+        if (statClusterEl) statClusterEl.innerText = dedupSummary.unique_encounters_count || (data.items || []).length;
+        const statAllEl = document.getElementById('statAllFramesCount');
+        if (statAllEl) statAllEl.innerText = data.total_processed || (data.items || []).length;
+
+        // Check if Generate Sheet Option is enabled or if user requested Generate Sheet
+        const autoOpt = document.getElementById('autoGenerateSheetOption');
+        const shouldGenerateSheet = forceGenerateSheet || (autoOpt ? autoOpt.checked : true);
+        if (shouldGenerateSheet) {
+          downloadBatchExcel(data);
+        }
+
+        renderBatchGrid(data, window.currentBatchViewMode || 'clusters');
+
+        fetchOverviewMetrics();
+        loadGalleryImages();
+      } catch (err) {
+        if (indicator) indicator.classList.add('hidden');
+        alert('Error processing batch upload: ' + err.message);
+      }
+    }
+
+    window.currentBatchViewMode = 'clusters';
+
+    function setBatchViewMode(mode) {
+      window.currentBatchViewMode = mode;
+      const btnClusters = document.getElementById('btnViewClusters');
+      const btnAll = document.getElementById('btnViewAllFrames');
+      if (mode === 'clusters') {
+        if (btnClusters) btnClusters.className = 'px-3 py-1 rounded font-bold text-xs bg-teal-500 text-black shadow-sm transition';
+        if (btnAll) btnAll.className = 'px-3 py-1 rounded font-bold text-xs text-slate-400 hover:text-white transition';
+      } else {
+        if (btnClusters) btnClusters.className = 'px-3 py-1 rounded font-bold text-xs text-slate-400 hover:text-white transition';
+        if (btnAll) btnAll.className = 'px-3 py-1 rounded font-bold text-xs bg-teal-500 text-black shadow-sm transition';
+      }
+      if (window.lastBatchResult) {
+        renderBatchGrid(window.lastBatchResult, mode);
+      }
+    }
+
+    function createInspectorRecord(item, fallbackStation) {
+      const isAnimal = item.has_animal && !item.is_empty;
+      const displayName = isAnimal 
+        ? (item.common_name || (item.primary_species || 'Unknown').replace('_', ' ')) 
+        : 'Animal Not Detected';
+      return {
+        id: item.image_id || item.file_name,
+        file_name: item.saved_file || item.file_name,
+        image_url: item.image_url,
+        location: item.location || fallbackStation || 'loc_01',
+        datetime: item.datetime || new Date().toISOString().replace('T', ' ').slice(0, 19),
+        species: isAnimal ? (item.primary_species || item.species || 'fauna') : 'empty',
+        common_name: displayName,
+        scientific_name: isAnimal ? (item.scientific_name || 'Identified Fauna') : 'Non-Wildlife / Empty',
+        is_empty: !isAnimal,
+        confidence: item.confidence || 0,
+        bbox: (isAnimal && item.bounding_box) ? [
+          item.bounding_box.ymin,
+          item.bounding_box.xmin,
+          item.bounding_box.ymax,
+          item.bounding_box.xmax
+        ] : [0.0, 0.0, 0.0, 0.0],
+        uncertainty_flags: item.uncertainty_flags || [],
+        is_night: Boolean(item.is_night || (item.sensor_props && item.sensor_props.is_night)),
+        is_upload: true,
+        is_rare: item.is_rare || false,
+        is_dangerous: item.is_dangerous || false,
+        is_anchor: item.is_anchor,
+        is_duplicate: item.is_duplicate,
+        cluster_id: item.cluster_id,
+        duplicate_of: item.duplicate_of,
+        similarity_to_anchor: item.similarity_to_anchor,
+        similarity_pct: item.similarity_pct,
+        alert: item.alert || null
+      };
+    }
+
+    function createBatchCardElement(item, isFeaturedAnchor, cluster) {
+      const card = document.createElement('div');
+      const isAnimal = item.has_animal && !item.is_empty;
+      const isAlert = item.is_rare || item.is_dangerous || (item.alert && item.alert.has_alert);
+      const isDangerous = item.is_dangerous || (item.alert && item.alert.is_dangerous);
+      const isAnchor = item.is_anchor || isFeaturedAnchor;
+      const isDuplicate = item.is_duplicate;
+      const isItemNight = item.is_night || (item.sensor_props && item.sensor_props.is_night) || (item.uncertainty_flags && item.uncertainty_flags.some(f => f.includes('Night') || f.includes('IR') || f.includes('Low Light')));
+      const displayName = isAnimal 
+        ? (item.common_name || (item.primary_species || 'Unknown').replace('_', ' ')) 
+        : 'Animal Not Detected';
+      const confPct = Math.round((item.confidence || 0) * 100);
+
+      card.className = isAlert
+        ? 'bg-[#180b0b] border-2 border-red-500 shadow-xl shadow-red-950/70 ring-2 ring-red-500/20 hover:border-red-400 rounded-xl overflow-hidden transition flex flex-col justify-between'
+        : (isAnchor 
+            ? 'bg-[#0a1813] border-2 border-teal-500/80 ring-2 ring-teal-500/20 hover:border-teal-400 rounded-xl overflow-hidden shadow-md transition flex flex-col justify-between'
+            : (isDuplicate 
+                ? 'bg-[#0e1612]/75 border border-amber-900/50 hover:border-amber-500/60 rounded-xl overflow-hidden shadow-sm transition flex flex-col justify-between opacity-90'
+                : 'bg-[#0e1612] border border-emerald-950/80 hover:border-emerald-500/50 rounded-xl overflow-hidden shadow-sm transition flex flex-col justify-between'));
+
+      const inspectorRec = createInspectorRecord(item);
+
+      card.innerHTML = `
+        <div>
+          <div class="h-48 bg-black relative overflow-hidden">
+            <img src="${item.image_url}" alt="${displayName}" class="w-full h-full object-cover" />
+            <div class="absolute top-2 left-2 flex flex-col space-y-1">
+              <span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-slate-200">${item.location || 'loc_01'}</span>
+              ${isAlert ? `<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-extrabold bg-red-600 text-white animate-pulse">🚨 ${isDangerous ? 'DANGEROUS' : 'RARE'} ALERT</span>` : ''}
+              ${isAnchor ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-extrabold bg-teal-400 text-black">⭐ ANCHOR (BEST FRAME)</span>' : ''}
+              ${isDuplicate ? `<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500 text-black">🔄 DUPLICATE (${item.similarity_pct || 98}%)</span>` : ''}
+              ${isItemNight ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-indigo-300 font-bold">🌙 NIGHT VISION (IR)</span>' : ''}
+              ${isAnimal 
+                ? '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 font-bold">✓ ANIMAL DETECTED</span>' 
+                : '<span class="hud-tag px-2 py-0.5 rounded text-[10px] font-mono text-rose-400 font-bold">✗ ANIMAL NOT DETECTED</span>'}
+            </div>
+            <div class="absolute bottom-2 right-2 hud-tag px-2 py-0.5 rounded text-[11px] font-mono text-emerald-300 font-bold">
+              ${confPct}% Conf
+            </div>
+          </div>
+          <div class="p-4 space-y-2.5">
+            <div>
+              <div class="text-[10px] uppercase font-mono font-bold ${isAlert ? 'text-red-400' : (isAnchor ? 'text-teal-400' : (isAnimal ? 'text-emerald-400' : 'text-rose-400'))} tracking-wider flex items-center justify-between">
+                <span>${isAlert ? '🚨 High Priority Detection' : (isAnchor ? '⭐ Sighting Anchor Frame' : (isAnimal ? 'Identified Animal' : 'Detection Status'))}</span>
+                ${item.cluster_id ? `<span class="font-mono text-[9px] text-teal-300/80">${item.cluster_id}</span>` : ''}
+              </div>
+              <h3 class="text-lg font-extrabold ${isAlert ? 'text-red-200' : (isAnimal ? 'text-white' : 'text-rose-300')} capitalize leading-tight mt-0.5">${displayName}</h3>
+              <p class="text-[11px] text-slate-400 font-mono mt-0.5 truncate">${item.file_name} ${item.detected_subject ? `&bull; ${item.detected_subject}` : ''}</p>
+            </div>
+
+            ${isAlert ? `
+              <div class="p-2.5 rounded-lg bg-red-950/80 border border-red-500/80 space-y-1 text-xs">
+                <div class="flex items-center justify-between">
+                  <span class="font-extrabold text-red-200 text-[11px] flex items-center gap-1 uppercase tracking-wide">
+                    <span>🚨</span> ${item.alert?.badge || 'RARE ANIMAL ALERT'}
+                  </span>
+                  <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-red-600 text-white uppercase">${item.alert?.alert_level || 'CRITICAL'}</span>
+                </div>
+                <p class="text-[10px] text-red-100 font-medium">${item.alert?.threat_level || 'High Threat / Rare Species'}</p>
+                <p class="text-[10px] text-amber-300 italic pt-0.5 border-t border-red-900/60">${item.alert?.safety_protocol || 'Maintain 150m standoff distance.'}</p>
+              </div>
+            ` : ''}
+
+            ${isDuplicate ? `
+              <div class="p-2 rounded-lg bg-amber-950/40 border border-amber-800/50 text-[11px] text-amber-200 space-y-0.5">
+                <div class="font-mono font-bold text-amber-300">🔄 Redundant Burst Frame Grouped</div>
+                <div class="text-[10px] text-slate-300">${item.similarity_pct || 98}% match with anchor. Manual inspection unnecessary.</div>
+              </div>
+            ` : ''}
+
+            <div>
+              <div class="flex justify-between text-[11px] font-mono text-slate-400 mb-1">
+                <span>${isAnimal ? 'Classification Confidence' : 'Filter Certainty'}</span>
+                <span class="text-emerald-400 font-bold">${confPct}%</span>
+              </div>
+              <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                <div class="h-full ${isAnimal ? 'bg-emerald-500' : 'bg-rose-500'}" style="width: ${confPct}%"></div>
+              </div>
+            </div>
+
+            ${item.empty_reason ? `<div class="text-[10px] text-amber-300/80 italic font-mono">${item.empty_reason}</div>` : ''}
+
+            <div class="flex flex-wrap gap-1">
+              ${(item.uncertainty_flags || []).map(f => `<span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-slate-900 border border-slate-800 text-slate-300">${f}</span>`).join('')}
+              <span class="px-1.5 py-0.5 rounded text-[9px] font-mono bg-emerald-950 border border-emerald-800 text-emerald-300">✓ In Gallery</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-4 pt-0">
+          <div class="pt-2 border-t border-emerald-950/80 flex items-center justify-between gap-2">
+            <button type="button" class="btn-inspect-batch flex-1 py-1.5 px-3 rounded-lg ${isAnimal ? 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30' : 'bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/30'} text-xs font-semibold text-center transition">
+              ${isAnimal ? '🔍 Inspect Bounding Box' : '🔍 Inspect Frame'}
+            </button>
+            <button type="button" class="btn-view-gallery py-1.5 px-3 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold text-center transition">
+              🖼️ Gallery
+            </button>
+          </div>
+        </div>
+      `;
+
+      const inspectBtn = card.querySelector('.btn-inspect-batch');
+      if (inspectBtn) inspectBtn.addEventListener('click', () => openInspector(inspectorRec));
+
+      const galleryBtn = card.querySelector('.btn-view-gallery');
+      if (galleryBtn) galleryBtn.addEventListener('click', () => switchTab('gallery'));
+
+      return card;
+    }
+
+    function renderBatchGrid(data, mode) {
+      const grid = document.getElementById('batchResultsGrid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      const items = data.items || [];
+      const clusters = (data.duplicate_summary && data.duplicate_summary.clusters) ? data.duplicate_summary.clusters : [];
+
+      if (mode === 'clusters' && clusters.length > 0) {
+        clusters.forEach((cluster, idx) => {
+          const clusterContainer = document.createElement('div');
+          const hasMultiple = cluster.total_frames > 1;
+
+          clusterContainer.className = hasMultiple
+            ? 'col-span-full bg-[#0a1410] border-2 border-teal-500/60 rounded-2xl p-5 shadow-2xl space-y-4'
+            : 'col-span-1';
+
+          if (hasMultiple) {
+            clusterContainer.innerHTML = `
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-teal-900/50 gap-2">
+                <div class="flex items-center gap-2.5">
+                  <span class="w-9 h-9 rounded-lg bg-teal-500/20 border border-teal-500/40 flex items-center justify-center text-lg shrink-0">🐾</span>
+                  <div>
+                    <div class="flex flex-wrap items-center gap-2">
+                      <span class="text-xs font-mono font-bold text-teal-300 uppercase tracking-wide">Sighting Cluster #${idx + 1}</span>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-mono font-extrabold bg-teal-400 text-black">
+                        ${cluster.total_frames} PHOTOS (${cluster.duplicate_count} DUPLICATES GROUPED)
+                      </span>
+                      <span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-950 text-emerald-300 border border-emerald-700">
+                        ⚡ SAVES ${cluster.workload_saved_pct}% REVIEW WORK
+                      </span>
+                    </div>
+                    <h3 class="text-base font-extrabold text-white mt-0.5 capitalize">${cluster.cluster_title}</h3>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button type="button" class="btn-verify-group px-3.5 py-1.5 rounded-lg bg-teal-600 hover:bg-teal-500 text-black font-extrabold text-xs flex items-center gap-1.5 transition shadow-sm">
+                    <span>✓ Verify Encounter (${cluster.total_frames} Frames at Once)</span>
+                  </button>
+                </div>
+              </div>
+              <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 items-start">
+                <div class="lg:col-span-2 cluster-anchor-container"></div>
+                <div class="lg:col-span-1 cluster-duplicates-container space-y-2.5 bg-black/40 p-3.5 rounded-xl border border-teal-950/80">
+                  <div class="flex items-center justify-between text-[11px] font-mono font-bold text-slate-300 pb-1 border-b border-teal-950/60">
+                    <span class="text-teal-300">🔄 DUPLICATES (${cluster.duplicate_count})</span>
+                    <span class="text-slate-400">Review 1 of ${cluster.total_frames}</span>
+                  </div>
+                  <div class="space-y-2 max-h-[460px] overflow-y-auto pr-1 cluster-duplicates-list"></div>
+                </div>
+              </div>
+            `;
+
+            // Render Anchor Card in left 2/3
+            const anchorContainer = clusterContainer.querySelector('.cluster-anchor-container');
+            const anchorItem = items.find(it => (it.image_id === cluster.anchor_image_id || it.file_name === cluster.anchor_file_name)) || items[0];
+            const anchorCard = createBatchCardElement(anchorItem, true, cluster);
+            anchorContainer.appendChild(anchorCard);
+
+            // Render Duplicate Cards in right 1/3
+            const dupsList = clusterContainer.querySelector('.cluster-duplicates-list');
+            const dupMembers = (cluster.members || []).filter(m => !m.is_anchor);
+            dupMembers.forEach((m, mIdx) => {
+              const fullItem = items.find(it => (it.image_id === m.image_id || it.file_name === m.file_name)) || m;
+              const dupRow = document.createElement('div');
+              dupRow.className = 'p-2.5 rounded-xl bg-[#0e1612] border border-teal-900/60 hover:border-teal-400 transition cursor-pointer flex items-center gap-3';
+              dupRow.onclick = () => openInspector(createInspectorRecord(fullItem));
+              dupRow.innerHTML = `
+                <img src="${fullItem.image_url || m.image_url}" class="w-16 h-16 rounded-lg object-cover bg-black shrink-0" />
+                <div class="min-w-0 flex-1 text-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="font-mono text-[10px] text-teal-300 font-bold">FRAME #${mIdx + 2}</span>
+                    <span class="px-1.5 py-0.5 rounded text-[9px] font-mono font-extrabold bg-teal-900/80 text-teal-200 border border-teal-600/50">
+                      ${m.similarity_pct || 98}% MATCH
+                    </span>
+                  </div>
+                  <div class="font-bold text-slate-200 truncate mt-0.5">${fullItem.file_name || m.file_name}</div>
+                  <div class="text-[10px] text-slate-400 font-mono mt-1 flex items-center justify-between">
+                    <span>${m.duplicate_tier || 'BURST DUPLICATE'}</span>
+                    <span class="text-teal-400 font-semibold flex items-center gap-0.5">🔍 Inspect</span>
+                  </div>
+                </div>
+              `;
+              dupsList.appendChild(dupRow);
+            });
+
+            const verifyBtn = clusterContainer.querySelector('.btn-verify-group');
+            if (verifyBtn) {
+              verifyBtn.onclick = () => {
+                verifyBtn.className = 'px-3.5 py-1.5 rounded-lg bg-emerald-500 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-sm';
+                verifyBtn.innerHTML = `<span>✓ Verified Encounter (${cluster.total_frames} Frames Approved)</span>`;
+              };
+            }
+
+            grid.appendChild(clusterContainer);
+          } else {
+            // Singleton encounter
+            const singleItem = items.find(it => (it.image_id === cluster.anchor_image_id || it.file_name === cluster.anchor_file_name)) || items[0];
+            const singleCard = createBatchCardElement(singleItem, false, cluster);
+            grid.appendChild(singleCard);
+          }
+        });
+      } else {
+        // Individual all frames mode
+        items.forEach(item => {
+          const card = createBatchCardElement(item, false);
+          grid.appendChild(card);
+        });
+      }
+    }
+
+    async function downloadBatchExcel(explicitData) {
+      const data = explicitData || window.lastBatchResult;
+      const station = document.getElementById('batchStationSelect') ? document.getElementById('batchStationSelect').value : 'loc_01';
+      if (!data || !data.items || data.items.length === 0) {
+        window.location.href = `/api/detection/export-batch-excel?location=${encodeURIComponent(station)}`;
+        return;
+      }
+      try {
+        const payload = {
+          items: data.items,
+          location: data.location || station,
+          timestamp: data.timestamp || new Date().toISOString().replace('T', ' ').slice(0, 19)
+        };
+        const res = await fetch('/api/detection/export-batch-excel', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error('Failed to generate Excel report');
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const tsClean = (payload.timestamp || '').replace(/[: ]/g, '-');
+        a.download = `wildlife_batch_summary_${tsClean}.xlsx`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+      } catch (err) {
+        console.error('Excel download error:', err);
+        window.location.href = `/api/detection/export-batch-excel?location=${encodeURIComponent(station)}`;
+      }
+    }
+
+    // 6. LIVE SINGLE UPLOAD & INFERENCE
+    function handleDragOver(e) { e.preventDefault(); }
+    function handleDragLeave(e) { e.preventDefault(); }
+    function handleDrop(e) {
+      e.preventDefault();
+      if (e.dataTransfer.files.length > 0) {
+        uploadFileForInference(e.dataTransfer.files[0]);
+      }
+    }
+    function handleFileSelected(e) {
+      if (e.target.files.length > 0) {
+        uploadFileForInference(e.target.files[0]);
+      }
+    }
+
+    async function uploadFileForInference(file) {
+      const station = document.getElementById('uploadStationSelect').value;
+      const threshold = document.getElementById('uploadThresholdSlider').value;
+      const container = document.getElementById('uploadResultContainer');
+
+      container.innerHTML = `<div class="py-12"><div class="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div><p class="text-xs text-emerald-400 font-mono">Running Animal Detection & Species Classifier...</p></div>`;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('location', station);
+      formData.append('threshold', threshold);
+
+      try {
+        const res = await fetch('/api/detection/predict-image', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        window.lastSingleResult = data;
+
+        const isAnimal = data.has_animal && !data.is_empty;
+        const isAlert = data.is_rare || data.is_dangerous || (data.alert && data.alert.has_alert);
+        if (isAlert) {
+          playAlertChime();
+        }
+
+        const isNight = data.is_night || data.night_mode_active || (data.sensor_props && data.sensor_props.is_night) || (data.uncertainty_flags && data.uncertainty_flags.some(f => f.includes('Night') || f.includes('IR') || f.includes('Low Light')));
+        const badgeColor = isAnimal ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-rose-400 bg-rose-500/10 border-rose-500/30';
+        const verdictText = isAnimal ? '✓ ANIMAL DETECTED' : '✗ ANIMAL NOT DETECTED';
+        const displayName = isAnimal ? (data.common_name || data.primary_species.replace('_', ' ')) : 'Animal Not Detected';
+
+        container.innerHTML = `
+          <div class="space-y-4 text-left">
+            ${isAlert ? `
+              <div class="p-3.5 rounded-xl bg-gradient-to-r from-red-950/95 via-[#2b0808] to-amber-950/90 border-2 border-red-500 shadow-xl shadow-red-950/60 space-y-2 animate-pulse">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-extrabold text-red-200 flex items-center gap-1.5 uppercase tracking-wide">
+                    <span>🚨</span> ${data.alert?.badge || 'RARE & DANGEROUS ANIMAL ALERT'}
+                  </span>
+                  <span class="px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-red-600 text-white uppercase shadow-sm">
+                    ${data.alert?.alert_level || 'CRITICAL'}
+                  </span>
+                </div>
+                <p class="text-xs text-white font-extrabold leading-tight">${data.alert?.title || 'Rare / Dangerous Wildlife Detected'}</p>
+                <p class="text-[11px] text-red-100 leading-tight">${data.alert?.message || ''}</p>
+                <div class="pt-1.5 border-t border-red-900/60 text-[10px] text-amber-200 flex flex-col gap-0.5 font-mono">
+                  <div><strong>Threat Level:</strong> <span class="text-white">${data.alert?.threat_level || 'High Danger'}</span></div>
+                  <div><strong>Conservation:</strong> <span class="text-white">${data.alert?.conservation_status || 'Protected'}</span></div>
+                  <div class="text-amber-300 italic pt-0.5"><strong>Protocol:</strong> ${data.alert?.safety_protocol || 'Alert field patrol and maintain standoff distance.'}</div>
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="relative bg-black rounded-xl overflow-hidden border border-emerald-950 flex items-center justify-center">
+              <img id="uploadPreviewImg" src="${data.image_url}" class="max-h-72 object-contain w-full" />
+              ${isNight ? '<div class="absolute top-2 left-2 hud-tag px-2.5 py-1 rounded text-[10px] font-mono text-indigo-300 font-bold flex items-center gap-1.5 shadow-md"><span>🌙</span> NIGHT VISION ACTIVE (IR 850nm)</div>' : ''}
+            </div>
+
+            <div class="p-4 rounded-xl bg-[#0e1612] border border-emerald-950 space-y-2">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-300">Detection Verdict:</span>
+                <div class="flex items-center gap-1.5">
+                  ${isNight ? '<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-indigo-950/80 border border-indigo-500/50 text-indigo-300">🌙 Night Mode</span>' : ''}
+                  <span class="px-2.5 py-1 rounded text-xs font-mono font-bold border ${badgeColor}">
+                    ${verdictText}
+                  </span>
+                </div>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-xs text-slate-400">Species / Result:</span>
+                <span class="text-xs font-bold ${isAnimal ? 'text-white' : 'text-rose-300'} capitalize">
+                  ${displayName} (${Math.round(data.confidence * 100)}%)
+                </span>
+              </div>
+              <div class="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+                <span>Timestamp:</span>
+                <span class="text-emerald-400 font-bold">${data.datetime || new Date().toISOString().replace('T', ' ').slice(0, 19)}</span>
+              </div>
+              ${data.empty_reason ? `<div class="text-[11px] text-amber-300 italic pt-1 border-t border-emerald-950/60">${data.empty_reason}</div>` : ''}
+              <div class="border-t border-emerald-950/80 pt-2 flex flex-wrap gap-1">
+                ${(data.uncertainty_flags || []).map(f => `<span class="px-2 py-0.5 rounded text-[10px] font-mono bg-slate-900 border border-slate-800 text-slate-300">${f}</span>`).join('')}
+              </div>
+              <div class="pt-2 border-t border-emerald-950/80">
+                <button type="button" onclick="downloadSingleResultSheet()" class="w-full py-2 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black text-xs font-extrabold text-center transition flex items-center justify-center gap-1.5 shadow-sm">
+                  <span>📊 Generate Sheet (.xlsx)</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        `;
+
+        fetchOverviewMetrics();
+        loadGalleryImages();
+      } catch (err) {
+        container.innerHTML = `<p class="text-rose-400 text-xs py-8">Inference error: ${err.message}</p>`;
+      }
+    }
+
+    function downloadSingleResultSheet() {
+      if (!window.lastSingleResult) return;
+      const station = document.getElementById('uploadStationSelect') ? document.getElementById('uploadStationSelect').value : 'loc_01';
+      downloadBatchExcel({
+        items: [window.lastSingleResult],
+        location: station,
+        timestamp: window.lastSingleResult.datetime || window.lastSingleResult.timestamp || new Date().toISOString().replace('T', ' ').slice(0, 19)
+      });
+    }
+
+    // 6. FEATHERLESS SUMMARY GENERATION
+    async function generateEcologicalSummary() {
+      const btn = document.getElementById('btnGenerateSummary');
+      const output = document.getElementById('summaryMarkdownContent');
+      const customPrompt = document.getElementById('customSummaryPrompt').value;
+
+      btn.disabled = true;
+      btn.innerText = 'Synthesizing...';
+      output.innerHTML = `<div class="py-12 text-center text-emerald-400 text-xs font-mono"><p class="animate-pulse">Querying Featherless AI LLM to synthesize ecological report...</p></div>`;
+
+      try {
+        const res = await fetch('/api/featherless/summary', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ custom_instructions: customPrompt })
+        });
+        const data = await res.json();
+
+        document.getElementById('summaryProviderBadge').innerText = data.provider;
+        document.getElementById('summaryTimestamp').innerText = `Generated at ${new Date(data.generated_at).toLocaleTimeString()}`;
+
+        let html = data.summary_markdown
+          .replace(/### (.*?)\n/g, '<h3 class="text-base font-bold text-emerald-400 mt-4 mb-2">$1</h3>')
+          .replace(/#### (.*?)\n/g, '<h4 class="text-sm font-semibold text-slate-200 mt-3 mb-1.5">$1</h4>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong class="text-white font-bold">$1</strong>')
+          .replace(/\*(.*?)\*/g, '<em class="text-emerald-300">$1</em>')
+          .replace(/- (.*?)\n/g, '<li class="ml-4 list-disc text-slate-300">$1</li>')
+          .replace(/\n\n/g, '<br/>');
+
+        output.innerHTML = html;
+      } catch (err) {
+        output.innerHTML = `<p class="text-rose-400 text-xs">Error generating synthesis: ${err.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'Generate Synthesis';
+      }
+    }
+
+    function copySummaryText() {
+      const text = document.getElementById('summaryMarkdownContent').innerText;
+      navigator.clipboard.writeText(text);
+      alert('Ecological report markdown copied to clipboard!');
+    }
+
+    // 7. FEATHERLESS CONFIG MODAL
+    function openConfigModal() { document.getElementById('configModal').classList.remove('hidden'); }
+    function closeConfigModal() { document.getElementById('configModal').classList.add('hidden'); }
+
+    async function checkFeatherlessStatus() {
+      try {
+        const res = await fetch('/api/featherless/status');
+        const data = await res.json();
+        const el = document.getElementById('featherlessModeText');
+        if (el) {
+          el.innerText = data.is_configured ? `Featherless: ${data.model.split('/')[1] || data.model}` : 'Featherless: Fallback Mode';
+        }
+      } catch (err) {
+        console.error('Error checking Featherless status:', err);
+      }
+    }
+
+    async function saveFeatherlessConfig() {
+      const key = document.getElementById('cfgApiKeyInput').value;
+      const model = document.getElementById('cfgModelSelect').value;
+
+      try {
+        await fetch('/api/featherless/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: key, model: model })
+        });
+        closeConfigModal();
+        checkFeatherlessStatus();
+        alert('Featherless AI settings saved successfully!');
+      } catch (err) {
+        alert(`Failed to save settings: ${err.message}`);
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,7 +1,7 @@
 # 🚀 CBIT Hacktoberfest '26 — Project Starter Repository
 
 > **Official Public Starter Repository for CBIT Hacktoberfest '26**  
-> *Chaitanya Bharathi Institute of Technology (CBIT), Hyderabad*
+> *Chaitanya Bharathi Institute of Technology (CBIT)*
 
 ---
 
